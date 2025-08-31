@@ -2,7 +2,7 @@
 
 case $1 in
   venv)
-    .\.venv\Scripts\activate
+    source .venv/Scripts/activate
     ;;
   test)
     echo "Starting testing..."
