@@ -9,11 +9,14 @@ pose_model = YOLO("yolov8n-pose.pt")
 
 # MediaPipe Hands
 mp_hands = mp.solutions.hands
-hands_model = mp_hands.Hands(static_image_mode=False,
-                             max_num_hands=2,
-                             min_detection_confidence=0.5,
-                             min_tracking_confidence=0.5)
+hands_model = mp_hands.Hands(
+    static_image_mode=False,
+    max_num_hands=2,
+    min_detection_confidence=0.5,
+    min_tracking_confidence=0.5,
+)
 mp_draw = mp.solutions.drawing_utils
+
 
 def get_full_skeleton(frame):
     results = pose_model.predict(frame, verbose=False)
@@ -34,10 +37,10 @@ def get_full_skeleton(frame):
             # 正方形裁剪
             size = 300  # 可以调节
             cx, cy = int(x), int(y)
-            x1 = max(cx - size//2, 0)
-            y1 = max(cy - size//2, 0)
-            x2 = min(cx + size//2, w)
-            y2 = min(cy + size//2, h)
+            x1 = max(cx - size // 2, 0)
+            y1 = max(cy - size // 2, 0)
+            x2 = min(cx + size // 2, w)
+            y2 = min(cy + size // 2, h)
             hand_crop = frame[y1:y2, x1:x2]
 
             # 转 RGB
@@ -54,10 +57,8 @@ def get_full_skeleton(frame):
                         hand_points.append((hx, hy))
             hands_kp.append(hand_points)
 
-        skeletons.append({
-            "body": keypoints,
-            "left_hand": hands_kp[0],
-            "right_hand": hands_kp[1]
-        })
+        skeletons.append(
+            {"body": keypoints, "left_hand": hands_kp[0], "right_hand": hands_kp[1]}
+        )
 
     return skeletons

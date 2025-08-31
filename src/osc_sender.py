@@ -1,6 +1,7 @@
 from pythonosc import udp_client
 import numpy as np
 
+
 class SkeletonSender:
     def __init__(self, ip="127.0.0.1", port=9000):
         self.client = udp_client.SimpleUDPClient(ip, port)
@@ -26,14 +27,14 @@ class SkeletonSender:
 
         # Tracker 映射：Hip、Chest、Feet、Knees、Elbows
         trackers = {
-            1: [0, 8],   # Hip
-            2: [0, 1],   # Chest
-            3: [11],     # Left Foot
-            4: [14],     # Right Foot
-            5: [10],     # Left Knee
-            6: [13],     # Right Knee
-            7: [6],      # Left Elbow
-            8: [3],      # Right Elbow
+            1: [0, 8],  # Hip
+            2: [0, 1],  # Chest
+            3: [11],  # Left Foot
+            4: [14],  # Right Foot
+            5: [10],  # Left Knee
+            6: [13],  # Right Knee
+            7: [6],  # Left Elbow
+            8: [3],  # Right Elbow
         }
 
         for i, idxs in trackers.items():
