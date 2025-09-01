@@ -5,12 +5,12 @@ import cv2
 from src.video_stream import recv_frame, recv_frame_from_camera
 from src.visualizer import PanelVisualizer
 from src.pose_processor import get_full_skeleton
-from src.config import WS_URI1, WS_URI2
+from src.config import WS_URI1, WS_URI2, osc_ip, osc_port
 import src.kalman as kalman
 from src.osc_sender import SkeletonSender
 from src.cal_real_pose import triangulate
 
-skeleton_sender = SkeletonSender(ip="192.168.1.241")
+skeleton_sender = SkeletonSender(ip=osc_ip, port=osc_port)
 
 fps = 8
 body_kf1 = kalman.create_kalman_filters(17)
