@@ -32,8 +32,18 @@ class SkeletonSender:
             
     def test_send(self, data):
         """
-        发送测试骨架数据
-        data: 形状 (17,3) 的 list 或 np.array
+        data: np.array 或 list，形状 (17,3)
+        直接发送原始骨架数据，展平成一维列表
         """
-        skeleton = [list(p) if hasattr(p, "tolist") else list(p) for p in data]
-        self.send_skeleton(skeleton)
+        # 确保是列表
+        if hasattr(data, "tolist"):
+            data_list = data.tolist()
+        else:
+            data_list = [list(p) for p in data]
+
+        # 展平
+        flat = [x for p in data_list for x in p]
+
+        # 直接发送到 /skeleton/full
+        self.client.send_message("/skeleton/full", flat)
+        print(f"Sent skeleton, {len(flat)} floats")

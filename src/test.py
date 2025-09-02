@@ -161,7 +161,7 @@ def plot_3d_skeleton(points):
     ax.view_init(elev=20, azim=60)  # 初始视角
     plt.tight_layout()
     plt.show()
-    
+
 def setup_3d_plot():
     plt.ion()
     fig = plt.figure()
