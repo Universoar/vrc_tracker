@@ -1,66 +1,96 @@
 import numpy as np
+import math
 
+# 你的相机参数（示例）
 CAM1_POS = np.array([0.0, 0.0, 1.2])
 CAM2_POS = np.array([0.0, 0.13, 1.2])
 
+# 你给的 CAM_ROT（假定是 cam -> world）
 CAM_ROT = np.array([
-    [0, 1, 0],   
-    [0, 0, 1], 
-    [1, 0, 0]    
-])
+    [0, 1, 0],
+    [0, 0, 1],
+    [1, 0, 0]
+], dtype=float)
 CAM1_ROT = CAM_ROT
 CAM2_ROT = CAM_ROT
 
+IMG_W, IMG_H = 480, 640       # 你上面写的是反过来，注意这里 W=宽 H=高
+FOV_X = np.deg2rad(42.74)
+FOV_Y = np.deg2rad(65.34)
+BASELINE = np.linalg.norm(CAM2_POS - CAM1_POS)  # d
 
-IMG_W, IMG_H = 640, 480
-FOV_X = np.deg2rad(60)
-FOV_Y = np.deg2rad(45)
+# 焦距（像素）
+f_x = (IMG_W / 2.0) / math.tan(FOV_X / 2.0)
+f_y = (IMG_H / 2.0) / math.tan(FOV_Y / 2.0)
 
-def pixel_to_ray(x, y, img_w, img_h, cam_rot):
-    """像素坐标 -> 世界坐标系下射线方向"""
-    X = (x - img_w / 2) / (img_w / 2) * np.tan(FOV_X / 2)
-    Y = -(y - img_h / 2) / (img_h / 2) * np.tan(FOV_Y / 2)
-    ray_cam = np.array([X, Y, 1.0])
-    ray_world = cam_rot @ ray_cam
-    return ray_world / np.linalg.norm(ray_world)
+def pixel_to_angle(u_c, v_c):
+    """把以中心为原点的像素偏移转为角度（弧度）"""
+    phi = math.atan2(u_c, f_x)  # 水平角
+    psi = math.atan2(v_c, f_y)  # 垂直角
+    return phi, psi
 
-def closest_point_between_rays(p1, d1, p2, d2):
-    """求两条射线的最近点"""
-    v12 = p2 - p1
-    d1d1 = np.dot(d1, d1)
-    d2d2 = np.dot(d2, d2)
-    d1d2 = np.dot(d1, d2)
-    denom = d1d1 * d2d2 - d1d2 * d1d2
-    if abs(denom) < 1e-6:
-        return None
-    t1 = (np.dot(v12, d1) * d2d2 - np.dot(v12, d2) * d1d2) / denom
-    t2 = (np.dot(v12, d1) * d1d2 - np.dot(v12, d2) * d1d1) / denom
-    c1 = p1 + t1 * d1
-    c2 = p2 + t2 * d2
-    return (c1 + c2) / 2
-
-def triangulate(keypoints1, keypoints2, user_height=1.3):
+def triangulate_point(u1, v1, u2, v2):
     """
-    输入两个摄像头17个关键点集合 [(x,y), ...] 
-    输出世界坐标系下17个关键点 [(x,y,z), ...]
+    输入：两个相机的像素（以图像中心为原点的偏移 u_c, v_c）
+    输出：相机1坐标系下的点 P_cam1 = [X_forward, Y_right, Z_up]
     """
-    points_3d = []
-    for (x1, y1), (x2, y2) in zip(keypoints1, keypoints2):
-        d1 = pixel_to_ray(x1, y1, IMG_W, IMG_H, CAM1_ROT)
-        d2 = pixel_to_ray(x2, y2, IMG_W, IMG_H, CAM2_ROT)
-        pt3d = closest_point_between_rays(CAM1_POS, d1, CAM2_POS, d2)
-        points_3d.append(pt3d if pt3d is not None else np.array([np.nan]*3))
-    points_3d = np.array(points_3d)
+    # 角度（相对于各自光轴）
+    phi_L, psi_L = pixel_to_angle(u1, v1)
+    phi_R, psi_R = pixel_to_angle(u2, v2)
 
-    # 缩放到真实身高（头顶到骨盆）
-    head_idx, pelvis_idx = 0, 8  # nose/top -> pelvis
-    head = points_3d[head_idx]
-    pelvis = points_3d[pelvis_idx]
-    if np.any(np.isnan(head)) or np.any(np.isnan(pelvis)):
-        return points_3d
-    current_height = np.linalg.norm(head - pelvis)
-    if current_height > 0:
-        scale = user_height / current_height
-        points_3d *= scale
+    tanL = math.tan(phi_L)
+    tanR = math.tan(phi_R)
+    denom = tanL - tanR
+    if abs(denom) < 1e-9:
+        return None  # 不稳定或平行
 
-    return points_3d
+    # 深度（相机前向 X_cam）
+    X = BASELINE / denom
+
+    # 横向 Y_cam：用左相机视线方程 Y = X * tan(phi_L) - d/2
+    Y = X * tanL - (BASELINE / 2.0)
+
+    # 垂直 Z_cam：用 left 的垂直角
+    Z = X * math.tan(psi_L)
+
+    return np.array([X, Y, Z], dtype=float)
+
+def cam_to_world(cam_point, cam_rot, cam_pos):
+    """把相机坐标系下点转换到世界坐标系"""
+    return cam_rot @ cam_point + cam_pos
+
+def triangulate_pixels_to_world(kps1, kps2):
+    """
+    kps1, kps2: list of (u, v) 像素坐标，原点为图像左上
+    返回: N x 3 数组，坐标顺序为 (x_world, depth_along_cam_forward, z_world)
+    """
+    # 先把像素转到以中心为原点
+    pts_world = []
+    half_w = IMG_W / 2.0
+    half_h = IMG_H / 2.0
+
+    for (u1_pix, v1_pix), (u2_pix, v2_pix) in zip(kps1, kps2):
+        # 中心化（以中心为0）
+        u1 = u1_pix - half_w
+        v1 = half_h - v1_pix  # 注意像素向下为增，转换成相机上为向上
+        u2 = u2_pix - half_w
+        v2 = half_h - v2_pix
+
+        cam_pt = triangulate_point(u1, v1, u2, v2)
+        if cam_pt is None:
+            pts_world.append([np.nan, np.nan, np.nan])
+            continue
+
+        # 把相机1坐标系下点变换到世界坐标（使用 cam1 的 R 和 pos）
+        world_pt = cam_to_world(cam_pt, CAM1_ROT, CAM1_POS)  # world vector
+
+        # 按你的约定输出： x 不变（取 world 的 X）， depth = 沿相机前向的距离 (world的X方向),
+        # z = world 的 Z 分量
+        # 这里 world 的分量含义依赖于 CAM_ROT 定义；通常 world_pt = [Xw, Yw, Zw]
+        x_world = world_pt[0]            # 横向/前向（取决于你的坐标）
+        depth = cam_pt[0]                # 深度沿相机前向（X_cam）
+        z_world = world_pt[2]            # 世界高度
+
+        pts_world.append([x_world, depth, z_world])
+
+    return np.array(pts_world, dtype=float)
