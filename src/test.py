@@ -161,79 +161,68 @@ def plot_3d_skeleton(points):
     plt.show()
 
 def setup_3d_plot():
-    """初始化3D窗口，只调用一次"""
-    plt.ion()  # 开启交互模式
+    plt.ion()
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
-    ax.set_xlim(-1, 1)
-    ax.set_ylim(-1, 1)
-    ax.set_zlim(-1, 1)
+    ax.set_xlabel("X"); ax.set_ylabel("Y"); ax.set_zlabel("Z")
+    ax.set_xlim(-1,1); ax.set_ylim(-1,1); ax.set_zlim(-1,1)
     return fig, ax
 
 def update_skeleton(ax, points):
-    """在已有 ax 上更新 3D 骨架"""
     ax.cla()
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
-    ax.set_xlim(-1, 1)
-    ax.set_ylim(-1, 1)
-    ax.set_zlim(-1, 1)
-    ax.scatter(points[:, 0], points[:, 1], points[:, 2], c='blue', s=50)
-    for i, j in COCO_SKELETON:
+    ax.set_xlabel("X"); ax.set_ylabel("Y"); ax.set_zlabel("Z")
+    ax.set_xlim(-1,1); ax.set_ylim(-1,1); ax.set_zlim(-1,1)
+    ax.scatter(points[:,0], points[:,1], points[:,2], c='blue', s=50)
+    for i,j in COCO_SKELETON:
         if i < len(points) and j < len(points):
-            xs = [points[i, 0], points[j, 0]]
-            ys = [points[i, 1], points[j, 1]]
-            zs = [points[i, 2], points[j, 2]]
-            ax.plot(xs, ys, zs, c='orange', lw=2)
+            ax.plot([points[i,0], points[j,0]],
+                    [points[i,1], points[j,1]],
+                    [points[i,2], points[j,2]], c='orange', lw=2)
     plt.draw()
     plt.pause(0.001)
 
-# -----------------------
-def start_udp_3d_view(ip: str, port: int, fps: int = 15):
-    """
-    从 UDP 接收骨架数据并持续显示 3D 骨架
+# OSC handler
+def make_handler(idx_list):
+    def handler(address, *args):
+        global latest_points
+        pos = np.array(args)
+        for i, idx in enumerate(idx_list):
+            latest_points[idx] = pos  # 直接把 pos 写到骨架指定点
+    return handler
 
-    ip: str, 接收端 IP
-    port: int, 接收端端口
-    fps: 刷新帧率
-    """
-    from pythonosc import dispatcher, osc_server
-
-    latest_points = np.zeros((17,3))  # 默认空骨架
-
-    def udp_handler(address, *args):
-        """
-        UDP 数据格式假设：17*3=51 个 float
-        /skeleton 0.0 1.1 0.5 ...
-        """
-        nonlocal latest_points
-        data = np.array(args, dtype=float)
-        if data.size == 51:  # 17*3
-            latest_points = data.reshape(17,3)
-
+def start_osc_3d_view(ip="127.0.0.1", port=9000, fps=8):
+    global latest_points
     disp = dispatcher.Dispatcher()
-    disp.map("/skeleton", udp_handler)
+
+    # 发送端发送了这些地址，每个 tracker 对应若干骨架点
+    trackers_map = {
+        "/tracking/trackers/head/position": [0],
+        "/tracking/trackers/1/position": [0,8],
+        "/tracking/trackers/2/position": [0,1],
+        "/tracking/trackers/3/position": [11],
+        "/tracking/trackers/4/position": [14],
+        "/tracking/trackers/5/position": [10],
+        "/tracking/trackers/6/position": [13],
+        "/tracking/trackers/7/position": [6],
+        "/tracking/trackers/8/position": [3],
+    }
+
+    for addr, idxs in trackers_map.items():
+        disp.map(addr, make_handler(idxs))
 
     server = osc_server.ThreadingOSCUDPServer((ip, port), disp)
-
-    # 启动 UDP 服务线程
     threading.Thread(target=server.serve_forever, daemon=True).start()
     print(f"OSC UDP Server running on {ip}:{port}")
 
-    # 启动绘图
+    # 绘图循环
     fig, ax = setup_3d_plot()
-
-    interval = 1 / fps
+    interval = 1/fps
     while True:
         update_skeleton(ax, latest_points)
-        time.sleep(interval)
+        plt.pause(interval)
 
 if __name__ == "__main__":
     # plot_skeleton(data1,"data1_skeleton.png")
     # plot_skeleton(data2,"data2_skeleton.png")
     # plot_3d_skeleton(points)
-    start_udp_3d_view("0.0.0.0", 9000)
+    start_osc_3d_view("0.0.0.0", 9000)
