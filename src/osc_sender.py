@@ -29,3 +29,11 @@ class SkeletonSender:
             rot = [0.0, 0.0, 0.0]
             self.client.send_message(f"/tracking/trackers/{i}/position", pos)
             self.client.send_message(f"/tracking/trackers/{i}/rotation", rot)
+            
+    def test_send(self, data):
+        """
+        发送测试骨架数据
+        data: 形状 (17,3) 的 list 或 np.array
+        """
+        skeleton = [list(p) if hasattr(p, "tolist") else list(p) for p in data]
+        self.send_skeleton(skeleton)

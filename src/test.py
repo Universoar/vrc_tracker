@@ -90,6 +90,8 @@ points = np.array([
     [0.075069, -1.2973, -0.097282]
 ])
 
+latest_points = np.zeros((17, 3), dtype=float)
+
 def plot_skeleton(data, save_path=None):
     """
     绘制人体骨架图
@@ -159,7 +161,7 @@ def plot_3d_skeleton(points):
     ax.view_init(elev=20, azim=60)  # 初始视角
     plt.tight_layout()
     plt.show()
-
+    
 def setup_3d_plot():
     plt.ion()
     fig = plt.figure()
@@ -177,44 +179,30 @@ def update_skeleton(ax, points):
         if i < len(points) and j < len(points):
             ax.plot([points[i,0], points[j,0]],
                     [points[i,1], points[j,1]],
-                    [points[i,2], points[j,2]], c='orange', lw=2)
+                    [points[i,2], points[j,2]],
+                    c='orange', lw=2)
     plt.draw()
     plt.pause(0.001)
 
-# OSC handler
-def make_handler(idx_list):
-    def handler(address, *args):
-        global latest_points
-        pos = np.array(args)
-        for i, idx in enumerate(idx_list):
-            latest_points[idx] = pos  # 直接把 pos 写到骨架指定点
-    return handler
+# ---------------- OSC Handler ----------------
+def skeleton_handler(address, *args):
+    global latest_points
+    arr = np.array(args)
+    if arr.size != 17*3:
+        print(f"Received data size {arr.size}, expected {17*3}")
+        return
+    latest_points = arr.reshape((17,3))
 
-def start_osc_3d_view(ip="127.0.0.1", port=9000, fps=8):
+# ---------------- 接收 & 绘图 ----------------
+def start_osc_3d_view(ip="0.0.0.0", port=9000, fps=8):
     global latest_points
     disp = dispatcher.Dispatcher()
-
-    # 发送端发送了这些地址，每个 tracker 对应若干骨架点
-    trackers_map = {
-        "/tracking/trackers/head/position": [0],
-        "/tracking/trackers/1/position": [0,8],
-        "/tracking/trackers/2/position": [0,1],
-        "/tracking/trackers/3/position": [11],
-        "/tracking/trackers/4/position": [14],
-        "/tracking/trackers/5/position": [10],
-        "/tracking/trackers/6/position": [13],
-        "/tracking/trackers/7/position": [6],
-        "/tracking/trackers/8/position": [3],
-    }
-
-    for addr, idxs in trackers_map.items():
-        disp.map(addr, make_handler(idxs))
+    disp.map("/skeleton/full", skeleton_handler)
 
     server = osc_server.ThreadingOSCUDPServer((ip, port), disp)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     print(f"OSC UDP Server running on {ip}:{port}")
 
-    # 绘图循环
     fig, ax = setup_3d_plot()
     interval = 1/fps
     while True:
