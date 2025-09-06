@@ -1,6 +1,6 @@
 # src/pose_with_hands.py
 from ultralytics import YOLO
-import mediapipe as mp
+# import mediapipe as mp
 import cv2
 import numpy as np
 import src.kalman as kalman

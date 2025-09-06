@@ -210,7 +210,7 @@ def start_osc_3d_view(ip="0.0.0.0", port=9000, fps=8):
         plt.pause(interval)
 
 if __name__ == "__main__":
-    # plot_skeleton(data1,"data1_skeleton.png")
-    # plot_skeleton(data2,"data2_skeleton.png")
+    plot_skeleton(data1,"data1_skeleton.png")
+    plot_skeleton(data2,"data2_skeleton.png")
     # plot_3d_skeleton(points)
-    start_osc_3d_view("0.0.0.0", 9000)
+    # start_osc_3d_view("0.0.0.0", 9000)
