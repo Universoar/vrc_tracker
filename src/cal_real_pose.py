@@ -28,7 +28,7 @@ f_y = (IMG_H / 2.0) / math.tan(FOV_Y / 2.0)
 # ws1_body, ws2_body: (N x 2) array 相机坐标
 # mode: "l-r" or "r-l" 视差方向
 # 返回: (N x 3) array [X, Y, Z] (米)
-def compute_3d_points(ws1_body, ws2_body, f_x, f_y, baseline, img_w, img_h, mode="r-l"):
+def compute_3d_points(ws1_body, ws2_body, mode="r-l"):
     u_l = ws1_body[:, 0]
     v_l = ws1_body[:, 1]
     u_r = ws2_body[:, 0]
@@ -41,10 +41,10 @@ def compute_3d_points(ws1_body, ws2_body, f_x, f_y, baseline, img_w, img_h, mode
     d[np.abs(d) < 1e-6] = np.nan  # 避免除零
 
     # 深度数组
-    Z = (f_x * baseline) / d
+    Z = (f_x * BASELINE) / d
 
     # 主点 (图像中心)
-    c_x, c_y = img_w / 2.0, img_h / 2.0
+    c_x, c_y = IMG_W / 2.0, IMG_H / 2.0
 
     # 反投影
     X = (u_l - c_x) * Z / f_x

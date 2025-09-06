@@ -8,7 +8,8 @@ from src.pose_processor import get_full_skeleton
 from src.config import WS_URI1, WS_URI2, osc_ip, osc_port
 import src.kalman as kalman
 from src.osc_sender import SkeletonSender
-from src.cal_real_pose import triangulate_pixels_to_world
+from src.cal_real_pose import compute_3d_points
+from src.test import plot_3d_skeleton
 
 skeleton_sender = SkeletonSender(ip=osc_ip, port=osc_port)
 
@@ -51,10 +52,12 @@ async def main():
         if cv2.waitKey(1) & 0xFF == 27:
             break
         
-        result = triangulate_pixels_to_world(
+        result = compute_3d_points(
             ws1_skeletons[0]['body'], 
             ws2_skeletons[0]['body']
         )
+        
+        plot_3d_skeleton(result);
         
         # skeleton_sender.send_skeleton(result)
 

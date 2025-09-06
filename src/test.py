@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from pythonosc import udp_client, osc_server, dispatcher
+from src.cal_real_pose import compute_3d_points
 
 COCO_SKELETON = [
     (0, 1),
@@ -210,7 +211,7 @@ def start_osc_3d_view(ip="0.0.0.0", port=9000, fps=8):
         plt.pause(interval)
 
 if __name__ == "__main__":
-    plot_skeleton(data1,"data1_skeleton.png")
-    plot_skeleton(data2,"data2_skeleton.png")
-    # plot_3d_skeleton(points)
-    # start_osc_3d_view("0.0.0.0", 9000)
+    # plot_skeleton(data1,"data1_skeleton.png")
+    # plot_skeleton(data2,"data2_skeleton.png")
+    plot_3d_skeleton(compute_3d_points(data1,data2))
+    # # start_osc_3d_view("0.0.0.0", 9000)
